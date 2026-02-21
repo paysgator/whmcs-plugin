@@ -55,7 +55,7 @@ Configure this URL in your Paysgator Dashboard under Webhooks settings.
 The module supports HMAC-SHA256 signature verification. To enable:
 1. Get your Webhook Secret from Paysgator Dashboard
 2. Enter it in the **Webhook Secret** field in WHMCS gateway configuration
-3. Uncomment the signature verification code in `callback/paysgator.php`
+3. Ensure the signature verification code in `callback/paysgator.php` is active.
 
 ## Transaction ID Format
 
