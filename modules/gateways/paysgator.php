@@ -96,9 +96,10 @@ function paysgator_link($params)
 
     // Generate sanitized externalTransactionId with timestamp (max 15 chars)
     // Format: {invoiceId}inv{timestamp} truncated to 15 chars
-    $externalTxId = $invoiceId . 'inv' . time();
+    // Generate unique externalTransactionId with microsecond precision to prevent collisions
+    $externalTxId = 'inv' . $invoiceId . '_' . microtime(true);
     $externalTxId = preg_replace('/[^a-zA-Z0-9_-]/', '', $externalTxId);
-    $externalTxId = substr($externalTxId, 0, 15);
+    $externalTxId = substr($externalTxId, 0, 64); // Allow longer IDs for better uniqueness
     
     // Prepare Payload
     $postData = [
@@ -126,6 +127,8 @@ function paysgator_link($params)
     ]);
     curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
     curl_setopt($ch, CURLOPT_TIMEOUT, 30);
+    curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, true);
+    curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, 2);
     
     $response = curl_exec($ch);
     $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
