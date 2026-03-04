@@ -7,6 +7,12 @@
 
 This module allows you to accept payments via Paysgator in WHMCS.
 
+## Requirements
+
+- **PHP**: 7.4 or higher
+- **WHMCS**: 7.0 or higher
+- **SSL**: Required for production environments (HTTPS webhook URL mandatory)
+
 ## Installation
 
 1. Copy the `paysgator-whmcs-payment/modules` folder to your WHMCS root directory. It should merge with your existing `modules` folder.
@@ -29,14 +35,14 @@ This module allows you to accept payments via Paysgator in WHMCS.
 5. Locate **Paysgator** in the list and click it to activate.
 6. Configure the following settings:
    - **API Key**: Required. Get this from your Paysgator Dashboard.
-   - **Webhook Secret**: Optional but recommended. Used to verify webhook signatures for security.
+   - **Webhook Secret**: Required. Used to verify webhook signatures for security. Get this from your Paysgator Dashboard.
    - **Test Mode**: Enable for sandbox testing.
 7. Click **Save Changes**.
 
 ## Configuration
 
 - **API Key**: Required. Your Paysgator API key (Live or Test).
-- **Webhook Secret**: Optional. Your Paysgator webhook secret for HMAC signature verification.
+- **Webhook Secret**: Required. Your Paysgator webhook secret for HMAC-SHA256 signature verification. Must be configured to enable security.
 - **Test Mode**: Enable for sandbox testing.
 
 ## Webhooks
@@ -44,6 +50,8 @@ This module allows you to accept payments via Paysgator in WHMCS.
 Paysgator will send webhooks to notify WHMCS of payment events.
 
 **Webhook URL**: `https://your-whmcs-domain.com/modules/gateways/callback/paysgator.php`
+
+⚠️ **Important**: Your webhook URL MUST use HTTPS in production. HTTP webhook URLs will be rejected for security.
 
 Configure this URL in your Paysgator Dashboard under Webhooks settings.
 

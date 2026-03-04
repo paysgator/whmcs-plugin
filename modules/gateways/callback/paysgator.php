@@ -29,16 +29,15 @@ $webhookData = json_decode($rawPayload, true);
 // Verify signature if webhook secret is configured
 $signature = isset($_SERVER['HTTP_X_PAYSGATOR_SIGNATURE']) ? $_SERVER['HTTP_X_PAYSGATOR_SIGNATURE'] : '';
 
-// Optional: Add webhook secret to gateway config and verify here
-// For now, we'll log and process, but in production you should verify the signature
-// if (!empty($gatewayParams['webhookSecret'])) {
-//     $expectedSignature = hash_hmac('sha256', $rawPayload, $gatewayParams['webhookSecret']);
-//     if (!hash_equals($expectedSignature, $signature)) {
-//         logTransaction($gatewayParams['name'], ['error' => 'Invalid signature'], 'Signature Verification Failed');
-//         http_response_code(401);
-//         die('Invalid signature');
-//     }
-// }
+// Verify webhook signature if webhook secret is configured
+if (!empty($gatewayParams['webhookSecret'])) {
+    $expectedSignature = hash_hmac('sha256', $rawPayload, $gatewayParams['webhookSecret']);
+    if (!hash_equals($expectedSignature, $signature)) {
+        logTransaction($gatewayParams['name'], ['error' => 'Invalid signature'], 'Signature Verification Failed');
+        http_response_code(401);
+        die('Invalid signature');
+    }
+}
 
 // Validate webhook structure
 if (!isset($webhookData['event']) || !isset($webhookData['data'])) {
@@ -71,11 +70,14 @@ if (!$externalTransactionId) {
     die('No externalTransactionId');
 }
 
-// Parse invoice ID from externalTransactionId (format: {invoiceId}inv{timestamp})
-// Extract the part before 'inv'
-$parts = explode('inv', $externalTransactionId);
-$invoiceId = isset($parts[0]) ? $parts[0] : '';
-$invoiceId = preg_replace('/[^0-9]/', '', $invoiceId); // Extract only numbers
+// Parse invoice ID from externalTransactionId using robust regex pattern
+// Format: {invoiceId}inv{timestamp} - extract numeric invoice ID before 'inv'
+if (!preg_match('/^(\d+)inv/', $externalTransactionId, $matches)) {
+    logTransaction($gatewayParams['name'], $webhookData, 'Invalid externalTransactionId format');
+    http_response_code(400);
+    die('Invalid externalTransactionId format');
+}
+$invoiceId = $matches[1];
 
 if (!$invoiceId) {
     logTransaction($gatewayParams['name'], $webhookData, 'Could not extract invoice ID from externalTransactionId');
@@ -94,6 +96,30 @@ if ($status !== 'SUCCESS') {
     logTransaction($gatewayParams['name'], $webhookData, 'Payment status not SUCCESS: ' . $status);
     http_response_code(200);
     die('OK - Status not SUCCESS');
+}
+
+// Validate payment amount against invoice total
+$invoiceData = select_query('tblinvoices', ['total', 'currency'], ['id' => $invoiceId]);
+if (!$invoiceData) {
+    logTransaction($gatewayParams['name'], $webhookData, 'Invoice not found');
+    http_response_code(400);
+    die('Invoice not found');
+}
+$invoiceTotal = $invoiceData['total'];
+$invoiceCurrency = $invoiceData['currency'];
+
+// Verify amount matches invoice total (allow small floating point differences)
+if (abs($amount - $invoiceTotal) > 0.01) {
+    logTransaction($gatewayParams['name'], $webhookData, 'Amount mismatch: webhook=' . $amount . ', invoice=' . $invoiceTotal);
+    http_response_code(400);
+    die('Amount mismatch');
+}
+
+// Verify currency matches invoice currency
+if ($currency !== $invoiceCurrency) {
+    logTransaction($gatewayParams['name'], $webhookData, 'Currency mismatch: webhook=' . $currency . ', invoice=' . $invoiceCurrency);
+    http_response_code(400);
+    die('Currency mismatch');
 }
 
 // Apply payment to invoice
